@@ -207,5 +207,5 @@ Your support helps us improve this multi-agent AI system and keep building usefu
 
 Thank you! 🙏
 
-[⭐ Star this project on GitHub](https://github.com/etheal9/Multi-Agent AI Report System with LangGraph) – Thank you for your support!
+[⭐ Star this project on GitHub]( https://github.com/Etheal9/Multi-Agent-AI-Report-System-with-LangGraph?tab=readme-ov-file AI Report System with LangGraph) – Thank you for your support!
 
