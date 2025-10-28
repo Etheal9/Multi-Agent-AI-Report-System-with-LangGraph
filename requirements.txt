@@ -1,0 +1,8 @@
+# Python package requirements for the multi-agent report writer example
+langgraph
+langchain-core
+pydantic
+google-generativeai
+tavily
+# Optional / recommended
+python-dotenv
