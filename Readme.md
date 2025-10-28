@@ -192,10 +192,10 @@ for step in graph.stream(initial_state, thread):
 
 ## 📚 References
 
-* [LangGraph Docs](https://docs.langgraph.com)
-* [LangChain Core](https://www.langchain.com)
-* [Tavily API](https://tavily.com/docs)
-* [Google Gemini API](https://ai.google.dev/gemini-api/docs/)
+* [LangGraph Docs](https://www.langchain.com/langgraph)
+* [LangChain Core](https://python.langchain.com/api_reference/core/index.html)
+* [Tavily API](https://docs.tavily.com/)
+* [Google Gemini API](https://ai.google.dev/gemini-api/docs)
 
 ---
 
