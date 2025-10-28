@@ -97,7 +97,8 @@ The section on ECB policy lacks quantitative data. Add more comparison with US i
 ## 🔁 Agent Workflow Cycle
 
 ```
-![AI Report Workflow](asset/workflow.png)
+![Ai Report workflow](assets/diagram.png)
+
 ```
 
 At each iteration:
