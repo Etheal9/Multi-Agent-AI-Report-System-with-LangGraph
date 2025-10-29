@@ -45,18 +45,13 @@ class AgentState(TypedDict):
 MODEL = "openai/gpt-oss-120b"
 
 # === PROMPTS ===
-PLAN_PROMPT = """You are an expert report planner. Create a clear, structured outline for the topic provided."""
-
-WRITER_PROMPT = """You are a professional report writer.
-Generate or improve the report using the given content, plan, and critique if available.
-------
-{content}"""
-
-REFLECTION_PROMPT = """You are a critical reviewer. Analyze the report and provide actionable feedback for improvement."""
-
-RESEARCH_PLAN_PROMPT = """You are a research assistant. Based on the topic, return a JSON array of 1–3 search queries that would help gather relevant data."""
-
-RESEARCH_CRITIQUE_PROMPT = """You are a researcher improving a report based on feedback. Generate up to 3 JSON search queries for new or missing data."""
+from prompts import (
+    PLAN_PROMPT,
+    WRITER_PROMPT,
+    REFLECTION_PROMPT,
+    RESEARCH_PLAN_PROMPT,
+    RESEARCH_CRITIQUE_PROMPT,
+)
 
 # === STRUCTURED OUTPUT MODEL ===
 class Queries(BaseModel):
