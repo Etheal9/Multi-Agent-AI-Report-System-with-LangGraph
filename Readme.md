@@ -41,7 +41,7 @@ Effects → Consumer Spending, Business Margins
 Solutions → ECB Measures, Fiscal Adjustments
 ```
 ## Agents workflow
-assets/diagram.png
+(assets/diagram.png)
 ---
 
 ### 2. Research Planner Agent (`research_plan_node`)
