@@ -1,157 +1,166 @@
+````markdown
+# 🧠 Multi-Agent AI Report System with LangGraph
 
-# Multi-Agent AI Report System with LangGraph
-
-This project demonstrates a **multi-agent workflow** that uses a large language model (LLM) together with the **Tavily search tool** to research and write professional reports.
-It can integrate **Google Gemini** via `google-generativeai` or OpenAI models.
-
-Example use case: *Generate a report on the latest inflation figures in the European Union.*
+This project is a **multi-agent automated report generator** built using **LangGraph**, **Groq API**, **Tavily Search**, and **Gradio** for the interface.  
+Each agent in the system works autonomously yet collaboratively — analyzing data, researching, writing reports, and reflecting on the results before delivering the final report.
 
 ---
 
-## 📑 Report Types
+## 🚀 Project Overview
 
-This system is adaptable for:
-
-* **Economic Reports:** Inflation, GDP, market trends
-* **Business Analysis:** Industry outlooks, competitor research
-* **Technical Reports:** AI, blockchain, or engineering topics
-* **Policy & Research Papers:** Social issues, education, sustainability
-* **Startup / Market Research:** Product analysis, growth strategies
-
-> Essentially, any report requiring **research, reasoning, iterative refinement, and factual accuracy**.
-
-Unlike raw web scraping, Tavily returns **searchable content snippets** that agents can integrate into drafts.
+The system simulates a coordinated AI workflow where multiple intelligent agents perform specific tasks:
+- Fetch and verify information from reliable sources.
+- Generate summaries and structured reports.
+- Reflect and revise content for accuracy.
+- Provide citations and clickable URLs for transparency.
+- Politely decline off-topic or conversational questions.
 
 ---
 
-## 🧠 Purpose of the Agents
+## ⚙️ Tech Stack
 
-The workflow includes **five specialized agents**, each responsible for a stage in the research-writing cycle.
+| Component | Description |
+|------------|-------------|
+| **LangGraph** | Framework for defining agent graphs and state-based workflows |
+| **Groq API** | High-speed LLM API for processing and reasoning |
+| **Tavily API** | Real-time web search and information retrieval |
+| **Gradio** | Web UI for interacting with the system |
+| **SQLite** | Checkpointing for conversation memory persistence |
 
-### 1. Planner Agent (`plan_node`)
+---
 
-**Purpose:** Generate a **structured outline** for the report.
-**Focus:** Section titles, subtopics, flow, tone, and writing goals.
-**Example Output:**
+## 🤖 Agent Purposes
+
+Each agent plays a distinct role in the workflow, ensuring smooth data exchange and logical sequencing.
+
+| Agent | Purpose |
+|--------|----------|
+| **Reader Agent** | Reads and parses user input (text, job posting, query) |
+| **Analyzer Agent** | Extracts intent, key entities, and important details |
+| **Research Agent** | Searches verified online sources using Tavily |
+| **Writer Agent** | Generates drafts and structured outputs in JSON or text |
+| **Reflector Agent** | Evaluates and refines the content for quality and accuracy |
+| **Final Agent** | Compiles and formats the final report with sources |
+
+---
+
+## 🧩 Agent Functionalities
+
+Here’s what each agent specifically does:
+
+### 🕮 Reader Agent
+- Accepts both JSON and plain text input automatically.
+- Cleans and normalizes text for further processing.
+- Detects whether the next step should be analytical or generative.
+
+### 🧠 Analyzer Agent
+- Identifies user intent and task type.
+- Extracts essential parameters like keywords, goals, or constraints.
+- Determines if the query requires research or internal generation.
+
+### 🌐 Research Agent
+- Fetches information from the web using the **Tavily Search API**.
+- Returns results in structured JSON with **clickable URLs** as sources.
+- Filters out unreliable or unverified content.
+
+### ✍️ Writer Agent
+- Uses **Groq API** to generate structured drafts or summaries.
+- Automatically outputs either JSON (for agents) or plain text (for humans).
+- Adds citations and references from the Research Agent.
+
+### 🪞 Reflector Agent
+- Reviews previous outputs for factual accuracy and clarity.
+- Ensures the writing aligns with user goals and readability standards.
+- Suggests improvements before sending to the Final Agent.
+
+### 📄 Final Agent
+- Combines all outputs into a formatted final report.
+- Ensures all sources are properly linked.
+- Refuses general/greeting questions politely (e.g., “I’m focused on report generation tasks only.”).
+
+---
+
+## 🖼️ System Architecture
+
+The diagram below illustrates the data flow and interactions between agents.
+
+![Multi-Agent System Diagram](assets/diagram.png)
+
+---
+
+## 🧩 Key Features
+
+- 💡 Autonomous sequential agent execution
+- 🔄 JSON-to-text adaptive output
+- 🌐 Verified research with clickable sources
+- 🚫 Graceful refusal for non-report queries
+- 🪶 Built-in reflection and quality assessment
+- 💾 Persistent state via SQLite checkpoints
+
+---
+
+## 🧰 Setup Instructions
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/your-username/Multi-Agent-AI-Report-System-with-LangGraph.git
+   cd Multi-Agent-AI-Report-System-with-LangGraph
+````
+
+2. **Install dependencies**
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Create `.env` file**
+
+   ```bash
+   GROQ_API_KEY=your_groq_api_key
+   TAVILY_API_KEY=your_tavily_api_key
+   ```
+
+4. **Run the app**
+
+   ```bash
+   python app.py
+   ```
+
+5. **Access the interface**
+
+   ```
+   http://127.0.0.1:7860
+   ```
+
+---
+
+## 🧭 Example Query
+
+**Input:**
+
+> “Generate a short market analysis for the AI automation tools industry in 2025.”
+
+**Output:**
+
+* A concise market overview.
+* Supporting references with clickable source URLs.
+* JSON output if the next agent is the consumer.
+
+---
+
+## 🧑‍💻 Author
+
+Developed by **Etheal Sintayehu**
+For contributions or collaborations: *coming soon!*
+
+---
+
+## 🪪 License
+
+This project is licensed under the **MIT License**.
 
 ```
-Introduction → Current EU Inflation Overview
-Causes → Energy Prices, Wage Growth, Monetary Policy
-Effects → Consumer Spending, Business Margins
-Solutions → ECB Measures, Fiscal Adjustments
-```
-## Agents workflow
-(assets/diagram.png)
----
 
-### 2. Research Planner Agent (`research_plan_node`)
-```markdown
-# Multi‑Agent AI Report System (LangGraph example)
-
-A compact example that shows how to build a multi‑agent research + writing pipeline using a LangGraph-style state graph, a retrieval/search tool (Tavily), and a text generation model (Groq / Gemini / OpenAI).
-
-This repo demonstrates a looped workflow where agents: plan → research → draft → critique → research more → revise.
-
-Quick use cases: automated economic, business, or technical reports where iterative fact-checking and structured output matter.
-
----
-
-## Highlights
-
-- Modular agents implemented as graph nodes (planner, research planner, file tool, generator, reflector, research critic).
-- Integrates a search tool (`Tavily`) to pull factual snippets into drafts.
-- Uses a small SQLite-backed checkpointer for memory/resume.
-- Prompts are kept in `prompts.py` and are designed for structured outputs (JSON) when appropriate.
-
----
-
-## Prerequisites
-
-- Python 3.8+
-- A virtual environment (recommended)
-- API keys for services you plan to use:
-    - TAVILY_API_KEY (required for research retrieval)
-    - GROQ_API_KEY or equivalent (if using Groq / model provider)
-    - (Optional) GEMINI_API_KEY or OPENAI_API_KEY if you swap models
-
-See `requirements.txt` for the Python dependencies.
-
----
-
-## Install
-
-Windows PowerShell (example):
-
-```bash
-python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# macOS / Linux
-source .venv/bin/activate
-```
-
-2. Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-3. Set your API keys (replace placeholders):
-
-```text
-TAVILY_API_KEY=your_tavily_key_here
-GROQ_API_KEY=your_groq_key_here
-# Optional (if you use Gemini/OpenAI):
-GEMINI_API_KEY=...
-OPENAI_API_KEY=...
-```
-
----
-
-## Run the chat UI (example)
-
-This repository includes a small Gradio-based chat UI (`chat_interface.py`).
-
-From PowerShell in the project root (with the venv active):
-
-```powershell
-# start the UI
-python chat_interface.py
-```
-
-Open http://127.0.0.1:7860 in your browser (or the URL printed by Gradio).
-
-Note: `chat_interface.py` calls `graph.stream(...)` and will print node progress to the server console.
-
----
-
-## Typical usage (programmatic)
-
-You can import the compiled `graph` from `app.py` and run the workflow programmatically. Example pattern (simplified):
-
-```python
-from app import graph
-
-initial_state = {
-    "task": "Write a detailed report about the latest inflation trends in the European Union.",
-    "max_revisions": 2,
-    "revision_number": 1,
-    "content": [],
-    "start_time": "2025-10-28T22:00:00",
-    "logs": []
-}
-
-thread = {"configurable": {"thread_id": "session-1"}}
-
-for step in graph.stream(initial_state, thread):
-    print(step)
-```
-
-* Each agent updates the `state` object
-* `logs` field tracks progress and debug info
-* Workflow stops automatically after `max_revisions`
-
----
 
 ## 📝 Advanced Features
 
