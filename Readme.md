@@ -81,13 +81,21 @@ See `requirements.txt` for the Python dependencies.
 
 Windows PowerShell (example):
 
-```powershell
+```bash
 python -m venv .venv
-.\.venv\Scripts\Activate
+# Windows
+.venv\Scripts\activate
+# macOS / Linux
+source .venv/bin/activate
+```
+
+2. Install dependencies:
+
+```bash
 pip install -r requirements.txt
 ```
 
-Create a `.env` file in the project root or export environment variables in your shell. Example `.env`:
+3. Set your API keys (replace placeholders):
 
 ```text
 TAVILY_API_KEY=your_tavily_key_here
@@ -124,82 +132,61 @@ You can import the compiled `graph` from `app.py` and run the workflow programma
 from app import graph
 
 initial_state = {
-        "task": "Write a 800–1200 word report about EU inflation through 2025.",
-        "max_revisions": 2,
-        "revision_number": 0,
-        "content": []
+    "task": "Write a detailed report about the latest inflation trends in the European Union.",
+    "max_revisions": 2,
+    "revision_number": 1,
+    "content": [],
+    "start_time": "2025-10-28T22:00:00",
+    "logs": []
 }
 
 thread = {"configurable": {"thread_id": "session-1"}}
 
 for step in graph.stream(initial_state, thread):
-        # step is a dict with node outputs (e.g. {'generate': {'draft': '...'}})
-        print(step)
-
+    print(step)
 ```
+
+* Each agent updates the `state` object
+* `logs` field tracks progress and debug info
+* Workflow stops automatically after `max_revisions`
 
 ---
 
-## Troubleshooting — common issues and fixes
+## 📝 Advanced Features
 
-- ModuleNotFoundError: No module named 'langgraph.checkpoint.sqlite'
-    - Symptom: `python chat_interface.py` fails with `ModuleNotFoundError` pointing at `from langgraph.checkpoint.sqlite import SqliteSaver`.
-    - Why: The `langgraph` package structure can differ by version. The example expects the `SqliteSaver` implementation at that path.
-    - Fixes (pick one):
-        1. Try installing a compatible `langgraph` version (or the repo branch/tag the example was developed against). Example:
-             - pip install langgraph
-             - or install from source if a GitHub branch is recommended.
-        2. Edit `app.py` to import more defensively: `from langgraph.checkpoint import SqliteSaver` (or fall back to an internal simple SQLite wrapper). If you edit the code, restart the app.
-        3. If you cannot get `SqliteSaver`, set `memory = None` and compile the graph without a checkpointer for testing (not recommended for production).
-
-- Missing API keys or bad keys
-    - Ensure `TAVILY_API_KEY` and `GROQ_API_KEY` (or your chosen model key) are set. The code raises clear errors if keys are missing.
-
-- assets/image.txt missing
-    - The `file_tool_node` reads `assets/image.txt`. Create that file (or change the node) if you expect local assets to be included in content.
-
-- Long-running graph or hanging
-    - Graphs can iterate multiple times. Tune `max_revisions` and `graph.config['recursion_limit']` to limit loops.
+* **Async streaming:** Optional `astream()` for real-time updates
+* **Dynamic research:** Agents generate queries based on gaps in drafts
+* **Iterative refinement:** Reflection + research critique loop ensures report quality
+* **Memory / checkpointing:** Using `SqliteSaver` to resume work mid-process
+* **Logging:** Each agent logs progress for easy debugging
 
 ---
 
-## Recommended small improvements (suggestions)
+## 🔧 Developer Notes
 
-These are small, low-risk suggestions you can apply to improve robustness and developer experience:
+* You can **swap models** (OpenAI ↔ Gemini) without changing agent logic
+* Customize **prompts** for different domains: finance, tech, policy, etc.
+* Extend `Queries` model for structured search filters (date, source, type)
+* Supports multi-threading for parallel research queries
+* Agents are modular: add, remove, or replace nodes for custom workflows
 
-1. Improve LangGraph import resilience: try `from langgraph.checkpoint import SqliteSaver` first and fall back to other paths. Add a helpful error message recommending a package version.
-2. Add a minimal `README example .env.example` file with placeholder keys to help onboarding.
-3. Add a `scripts/` folder with convenience scripts (start-dev.ps1) that activate the venv and run the app with the right environment.
-4. Add a short `CONTRIBUTING.md` with guidance on test patterns and where to pin `langgraph` versions.
-5. Add a simple unit test that imports `app.py` and checks `graph` compiles (mocking external APIs) to catch import/regression issues early.
 
----
+## 📚 References
 
-## Developer notes & pointers
+* [LangGraph Docs](https://www.langchain.com/langgraph)
+* [LangChain Core](https://python.langchain.com/api_reference/core/index.html)
+* [Tavily API](https://docs.tavily.com/)
+* [Google Gemini API](https://ai.google.dev/gemini-api/docs)
 
-- Prompts are in `prompts.py` and designed to produce structured JSON when needed.
-- `groq_client.py` wraps the Groq SDK and attempts to be resilient to SDK changes.
-- `app.py` composes the state graph and nodes; modify or extend nodes to add functionality.
 
----
 
-## Where to go next
-
-- If you want help pinning `langgraph` to a working version or adding the defensive imports mentioned above, I can update `app.py` and add a small test + `.env.example` for you.
-
----
-
-If this repo helped you, consider starring the original project on GitHub.
-
-```
-*Repository: Etheal9 / Multi-Agent-AI-Report-System-with-LangGraph*
-```
-
-```text
-Last edited: 2025-10-29 — README rewritten for clarity and troubleshooting guidance.
-```
-
-```
-
+⭐ Support & Feedback
 
 If you like what we are building here and want to support the project, the easiest way is to hit the ⭐ Star button on GitHub.
+
+Your support helps us improve this multi-agent AI system and keep building useful tools for research and report generation.
+
+Thank you! 🙏
+
+[⭐ Star this project on GitHub]( https://github.com/Etheal9/Multi-Agent-AI-Report-System-with-LangGraph?tab=readme-ov-file AI Report System with LangGraph) – Thank you for your support!
+
