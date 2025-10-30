@@ -5,25 +5,21 @@ from pathlib import Path
 from typing import TypedDict, List
 from dotenv import load_dotenv
 from pydantic import BaseModel
-from groq import Groq
 from tavily import TavilyClient
+#from langgraph.checkpoint import SqliteSaver
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import StateGraph, END
+from groq_client import ask_groq  # <- your Groq integration
 
 # === ENVIRONMENT SETUP ===
 load_dotenv()
 
 # --- API Keys ---
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
-
-if not GROQ_API_KEY:
-    raise EnvironmentError("❌ Missing GROQ_API_KEY in .env")
 if not TAVILY_API_KEY:
     raise EnvironmentError("❌ Missing TAVILY_API_KEY in .env")
 
 # --- Clients ---
-client = Groq(api_key=GROQ_API_KEY)
 tavily = TavilyClient(api_key=TAVILY_API_KEY)
 
 # === MEMORY ===
@@ -40,10 +36,6 @@ class AgentState(TypedDict):
     revision_number: int
     max_revisions: int
 
-
-# === MODEL CONFIG ===
-MODEL = "openai/gpt-oss-120b"
-
 # === PROMPTS ===
 from prompts import (
     PLAN_PROMPT,
@@ -57,67 +49,47 @@ from prompts import (
 class Queries(BaseModel):
     queries: List[str]
 
-
-# === NODES ===
+# === HELPERS ===
 def safe_json_parse(text, fallback=None):
-    """
-    Safely parse LLM output — accepts JSON, Python dicts, YAML-like text, or plain strings.
-    Ensures that data can flow between agents even if one returns natural text instead of JSON.
-    """
     import json, ast, re
 
     if not text:
         return fallback or {"queries": []}
 
-    # Remove code fences or markdown artifacts
     cleaned = re.sub(r"^```(json|python)?|```$", "", text.strip(), flags=re.MULTILINE)
 
-    # Try JSON first
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError:
         pass
 
-    # Try Python dict style (single quotes, etc.)
     try:
         return ast.literal_eval(cleaned)
     except Exception:
         pass
 
-    # Try to extract queries from text heuristically
-    # Example: "queries: [“foo”, “bar”]" → {"queries": ["foo", "bar"]}
     match = re.search(r"\[([^\]]+)\]", cleaned)
     if match:
         items = [i.strip().strip('"').strip("'") for i in match.group(1).split(",")]
         return {"queries": items}
 
-    print("⚠️ JSON parse failed, returning raw text as fallback.")
     return fallback or {"queries": [], "text": cleaned}
 
-
+# === NODES ===
 def plan_node(state: AgentState):
-    messages = [
-        {"role": "system", "content": PLAN_PROMPT},
-        {"role": "user", "content": state["task"]}
-    ]
+    prompt_text = f"{PLAN_PROMPT}\n\nTask: {state['task']}"
     try:
-        response = client.chat.completions.create(model=MODEL, messages=messages)
-        return {"plan": response.choices[0].message.content}
+        plan_text = ask_groq(prompt_text, max_tokens=500)
+        return {"plan": plan_text}
     except Exception as e:
         return {"plan": f"[error: plan_node failed] {e}"}
 
-
 def research_plan_node(state: AgentState):
-    messages = [
-        {"role": "system", "content": RESEARCH_PLAN_PROMPT},
-        {"role": "user", "content": state["task"]}
-    ]
+    prompt_text = f"{RESEARCH_PLAN_PROMPT}\n\nTask: {state['task']}"
     try:
-        response = client.chat.completions.create(model=MODEL, messages=messages)
-        queries_data = safe_json_parse(response.choices[0].message.content)
-        #queries = Queries(queries=queries_data.get("queries", []))
+        response_text = ask_groq(prompt_text, max_tokens=300)
+        queries_data = safe_json_parse(response_text)
         queries = Queries(queries=queries_data.get("queries", []) or queries_data.get("text", "").splitlines())
-
     except Exception as e:
         return {"content": [f"[error: research_plan_node] {e}"]}
 
@@ -130,7 +102,6 @@ def research_plan_node(state: AgentState):
         except Exception as e:
             content.append(f"[search_error: {q}] {e}")
     return {"content": content}
-
 
 def file_tool_node(state: AgentState):
     content = state.get("content", [])
@@ -147,7 +118,6 @@ def file_tool_node(state: AgentState):
         content.append("[file_missing: assets/image.txt not found]")
     return {"content": content}
 
-
 def compute_stats_node(state: AgentState):
     content = state.get("content", [])
     joined = "\n\n".join(content)
@@ -162,47 +132,33 @@ def compute_stats_node(state: AgentState):
         "stats": {"words": words, "sentences": num_sentences, "avg_sentence_words": avg_sent_len}
     }
 
-
 def generation_node(state: AgentState):
     content = "\n\n".join(state.get("content", []))
-    user_message = f"{state['task']}\n\nPlan:\n{state['plan']}"
-    messages = [
-        {"role": "system", "content": WRITER_PROMPT.format(content=content)},
-        {"role": "user", "content": user_message}
-    ]
+    user_message = f"{state['task']}\n\nPlan:\n{state.get('plan', '')}"
+    prompt_text = WRITER_PROMPT.format(content=content) + "\n\n" + user_message
     try:
-        response = client.chat.completions.create(model=MODEL, messages=messages)
+        draft_text = ask_groq(prompt_text, max_tokens=1000)
         return {
-            "draft": response.choices[0].message.content,
+            "draft": draft_text,
             "revision_number": state.get("revision_number", 0) + 1
         }
     except Exception as e:
         return {"draft": f"[error: generation_node failed] {e}"}
 
-
 def reflection_node(state: AgentState):
-    messages = [
-        {"role": "system", "content": REFLECTION_PROMPT},
-        {"role": "user", "content": state.get("draft", "")}
-    ]
+    prompt_text = f"{REFLECTION_PROMPT}\n\nDraft:\n{state.get('draft', '')}"
     try:
-        response = client.chat.completions.create(model=MODEL, messages=messages)
-        return {"critique": response.choices[0].message.content}
+        critique_text = ask_groq(prompt_text, max_tokens=500)
+        return {"critique": critique_text}
     except Exception as e:
         return {"critique": f"[error: reflection_node failed] {e}"}
 
-
 def research_critique_node(state: AgentState):
-    messages = [
-        {"role": "system", "content": RESEARCH_CRITIQUE_PROMPT},
-        {"role": "user", "content": state.get("critique", "")}
-    ]
+    prompt_text = f"{RESEARCH_CRITIQUE_PROMPT}\n\nCritique:\n{state.get('critique', '')}"
     try:
-        response = client.chat.completions.create(model=MODEL, messages=messages)
-        queries_data = safe_json_parse(response.choices[0].message.content)
-        #queries = Queries(queries=queries_data.get("queries", []))
+        response_text = ask_groq(prompt_text, max_tokens=300)
+        queries_data = safe_json_parse(response_text)
         queries = Queries(queries=queries_data.get("queries", []) or queries_data.get("text", "").splitlines())
-
     except Exception as e:
         return {"content": [f"[error: research_critique_node] {e}"]}
 
@@ -217,11 +173,36 @@ def research_critique_node(state: AgentState):
     return {"content": content}
 
 
-# === CONTROL FLOW ===
+  # === CONTROL FLOW ===
 def should_continue(state: AgentState):
+    """
+    Safety-first stopping:
+    - stop when revision_number >= max_revisions
+    - stop if many loop iterations happen without progress (safety counter)
+    - increment a safety loop counter stored in state['_loop_counter']
+    """
+    # ensure keys exist
+    state.setdefault("revision_number", 0)
+    state.setdefault("max_revisions", 1)
+    loop_counter = state.get("_loop_counter", 0) + 1
+    state["_loop_counter"] = loop_counter
+
+    # Stop if revisions have reached or exceeded max_revisions
     if state.get("revision_number", 0) >= state.get("max_revisions", 0):
+        print(f"✅ should_continue: reached revision limit ({state['revision_number']} >= {state['max_revisions']})")
         return END
+
+    # Safety stop: if we loop too many times without progress, stop
+    # (tunable: here we allow up to max_revisions*4 iterations)
+    safety_limit = max(10, state.get("max_revisions", 1) * 4)
+    if loop_counter > safety_limit:
+        print(f"⚠️ should_continue: safety loop limit reached ({loop_counter} > {safety_limit}), stopping.")
+        return END
+
+    # Otherwise request the reflect step
+    print(f"🔁 should_continue: loop {loop_counter}, revisions {state.get('revision_number', 0)} -> continuing to 'reflect'")
     return "reflect"
+
 
 
 # === BUILD THE GRAPH ===
@@ -245,17 +226,10 @@ builder.add_edge("compute_stats", "generate")
 builder.add_edge("reflect", "research_critique")
 builder.add_edge("research_critique", "generate")
 
+# === COMPILE THE GRAPH WITH RECURSION LIMIT ===
 graph = builder.compile(checkpointer=memory)
+graph.config = {"recursion_limit": 10}
 
-# === RUN ===
-thread = {"configurable": {"thread_id": "1"}} 
 
-print("🚀 Starting AI Report Generator...\n")
 
-for step in graph.stream({
-    "task": "what different of the quantum machine",
-    "max_revisions": 2,
-    "revision_number": 0,
-    "content": []
-}, thread):
-    print(step)
+#
