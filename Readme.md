@@ -44,168 +44,162 @@ Solutions → ECB Measures, Fiscal Adjustments
 ---
 
 ### 2. Research Planner Agent (`research_plan_node`)
+```markdown
+# Multi‑Agent AI Report System (LangGraph example)
 
-**Purpose:** Identify **information needs** before drafting.
-**Focus:** Generate search queries, collect supporting evidence, stats, and expert quotes.
-**Example Queries:**
+A compact example that shows how to build a multi‑agent research + writing pipeline using a LangGraph-style state graph, a retrieval/search tool (Tavily), and a text generation model (Groq / Gemini / OpenAI).
 
-```
-"Latest inflation rate EU September 2025 site:ec.europa.eu"
-"ECB response inflation 2025 analysis"
-"European consumer price index breakdown 2025"
-```
+This repo demonstrates a looped workflow where agents: plan → research → draft → critique → research more → revise.
+
+Quick use cases: automated economic, business, or technical reports where iterative fact-checking and structured output matter.
 
 ---
 
-### 3. Generation Agent (`generation_node`)
+## Highlights
 
-**Purpose:** Produce the **initial draft** using the outline and research.
-**Focus:** Write coherent paragraphs, integrate data, maintain style and flow.
-**Example Output:**
-
-```
-The European Union is currently experiencing a gradual decline in inflation after peaking in early 2024. Experts attribute this moderation to tighter monetary policy and lower energy prices…
-```
+- Modular agents implemented as graph nodes (planner, research planner, file tool, generator, reflector, research critic).
+- Integrates a search tool (`Tavily`) to pull factual snippets into drafts.
+- Uses a small SQLite-backed checkpointer for memory/resume.
+- Prompts are kept in `prompts.py` and are designed for structured outputs (JSON) when appropriate.
 
 ---
 
-### 4. Reflection Agent (`reflection_node`)
+## Prerequisites
 
-**Purpose:** Review the draft and provide **detailed critique**.
-**Focus:** Logic, clarity, style, argument strength, completeness.
-**Example Output:**
+- Python 3.8+
+- A virtual environment (recommended)
+- API keys for services you plan to use:
+    - TAVILY_API_KEY (required for research retrieval)
+    - GROQ_API_KEY or equivalent (if using Groq / model provider)
+    - (Optional) GEMINI_API_KEY or OPENAI_API_KEY if you swap models
 
-```
-The section on ECB policy lacks quantitative data. Add more comparison with US inflation. Improve transition between causes and effects.
-```
-
----
-
-### 5. Research Critique Agent (`research_critique_node`)
-
-**Purpose:** Conduct **targeted research** based on the reflection feedback.
-**Focus:** Generate queries to fill content gaps, collect updated statistics and relevant facts.
-**Example Queries:**
-
-```
-"ECB interest rate changes 2024–2025 chart"
-"EU inflation comparison US 2025 data"
-```
+See `requirements.txt` for the Python dependencies.
 
 ---
 
-## 🔁 Agent Workflow Cycle
+## Install
 
+Windows PowerShell (example):
 
-![Ai Report workflow](assets/diagram.png)
-
-
-At each iteration:
-
-* Reports become **more complete and accurate**
-* Structure becomes **tighter**
-* Style and arguments become **more professional**
-
----
-
-## ⚙️ Technical Requirements
-
-* Python 3.8+
-* See [requirements.txt](requirements.txt) for packages
-
----
-
-## 🛠 Setup
-
-1. Create and activate a virtual environment:
-
-```bash
+```powershell
 python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# macOS / Linux
-source .venv/bin/activate
-```
-
-2. Install dependencies:
-
-```bash
+.\.venv\Scripts\Activate
 pip install -r requirements.txt
 ```
 
-3. Set your API keys (replace placeholders):
+Create a `.env` file in the project root or export environment variables in your shell. Example `.env`:
 
-```bash
-export OPENAI_API_KEY="YOUR_OPENAI_KEY"
-export TAVILY_API_KEY="YOUR_TAVILY_KEY"
-# or use Gemini API key
-export GEMINI_API_KEY="YOUR_GEMINI_KEY"
+```text
+TAVILY_API_KEY=your_tavily_key_here
+GROQ_API_KEY=your_groq_key_here
+# Optional (if you use Gemini/OpenAI):
+GEMINI_API_KEY=...
+OPENAI_API_KEY=...
 ```
 
 ---
 
-## 🧩 Usage
+## Run the chat UI (example)
+
+This repository includes a small Gradio-based chat UI (`chat_interface.py`).
+
+From PowerShell in the project root (with the venv active):
+
+```powershell
+# start the UI
+python chat_interface.py
+```
+
+Open http://127.0.0.1:7860 in your browser (or the URL printed by Gradio).
+
+Note: `chat_interface.py` calls `graph.stream(...)` and will print node progress to the server console.
+
+---
+
+## Typical usage (programmatic)
+
+You can import the compiled `graph` from `app.py` and run the workflow programmatically. Example pattern (simplified):
 
 ```python
-from multi_agent_system import graph, AgentState
+from app import graph
 
 initial_state = {
-    "task": "Write a detailed report about the latest inflation trends in the European Union.",
-    "max_revisions": 2,
-    "revision_number": 1,
-    "content": [],
-    "start_time": "2025-10-28T22:00:00",
-    "logs": []
+        "task": "Write a 800–1200 word report about EU inflation through 2025.",
+        "max_revisions": 2,
+        "revision_number": 0,
+        "content": []
 }
 
-thread = {"configurable": {"thread_id": "1"}}
+thread = {"configurable": {"thread_id": "session-1"}}
 
 for step in graph.stream(initial_state, thread):
-    print(step)
+        # step is a dict with node outputs (e.g. {'generate': {'draft': '...'}})
+        print(step)
+
 ```
 
-* Each agent updates the `state` object
-* `logs` field tracks progress and debug info
-* Workflow stops automatically after `max_revisions`
+---
+
+## Troubleshooting — common issues and fixes
+
+- ModuleNotFoundError: No module named 'langgraph.checkpoint.sqlite'
+    - Symptom: `python chat_interface.py` fails with `ModuleNotFoundError` pointing at `from langgraph.checkpoint.sqlite import SqliteSaver`.
+    - Why: The `langgraph` package structure can differ by version. The example expects the `SqliteSaver` implementation at that path.
+    - Fixes (pick one):
+        1. Try installing a compatible `langgraph` version (or the repo branch/tag the example was developed against). Example:
+             - pip install langgraph
+             - or install from source if a GitHub branch is recommended.
+        2. Edit `app.py` to import more defensively: `from langgraph.checkpoint import SqliteSaver` (or fall back to an internal simple SQLite wrapper). If you edit the code, restart the app.
+        3. If you cannot get `SqliteSaver`, set `memory = None` and compile the graph without a checkpointer for testing (not recommended for production).
+
+- Missing API keys or bad keys
+    - Ensure `TAVILY_API_KEY` and `GROQ_API_KEY` (or your chosen model key) are set. The code raises clear errors if keys are missing.
+
+- assets/image.txt missing
+    - The `file_tool_node` reads `assets/image.txt`. Create that file (or change the node) if you expect local assets to be included in content.
+
+- Long-running graph or hanging
+    - Graphs can iterate multiple times. Tune `max_revisions` and `graph.config['recursion_limit']` to limit loops.
 
 ---
 
-## 📝 Advanced Features
+## Recommended small improvements (suggestions)
 
-* **Async streaming:** Optional `astream()` for real-time updates
-* **Dynamic research:** Agents generate queries based on gaps in drafts
-* **Iterative refinement:** Reflection + research critique loop ensures report quality
-* **Memory / checkpointing:** Using `SqliteSaver` to resume work mid-process
-* **Logging:** Each agent logs progress for easy debugging
+These are small, low-risk suggestions you can apply to improve robustness and developer experience:
 
----
-
-## 🔧 Developer Notes
-
-* You can **swap models** (OpenAI ↔ Gemini) without changing agent logic
-* Customize **prompts** for different domains: finance, tech, policy, etc.
-* Extend `Queries` model for structured search filters (date, source, type)
-* Supports multi-threading for parallel research queries
-* Agents are modular: add, remove, or replace nodes for custom workflows
+1. Improve LangGraph import resilience: try `from langgraph.checkpoint import SqliteSaver` first and fall back to other paths. Add a helpful error message recommending a package version.
+2. Add a minimal `README example .env.example` file with placeholder keys to help onboarding.
+3. Add a `scripts/` folder with convenience scripts (start-dev.ps1) that activate the venv and run the app with the right environment.
+4. Add a short `CONTRIBUTING.md` with guidance on test patterns and where to pin `langgraph` versions.
+5. Add a simple unit test that imports `app.py` and checks `graph` compiles (mocking external APIs) to catch import/regression issues early.
 
 ---
 
-## 📚 References
+## Developer notes & pointers
 
-* [LangGraph Docs](https://www.langchain.com/langgraph)
-* [LangChain Core](https://python.langchain.com/api_reference/core/index.html)
-* [Tavily API](https://docs.tavily.com/)
-* [Google Gemini API](https://ai.google.dev/gemini-api/docs)
+- Prompts are in `prompts.py` and designed to produce structured JSON when needed.
+- `groq_client.py` wraps the Groq SDK and attempts to be resilient to SDK changes.
+- `app.py` composes the state graph and nodes; modify or extend nodes to add functionality.
 
 ---
 
-⭐ Support & Feedback
+## Where to go next
+
+- If you want help pinning `langgraph` to a working version or adding the defensive imports mentioned above, I can update `app.py` and add a small test + `.env.example` for you.
+
+---
+
+If this repo helped you, consider starring the original project on GitHub.
+
+```
+*Repository: Etheal9 / Multi-Agent-AI-Report-System-with-LangGraph*
+```
+
+```text
+Last edited: 2025-10-29 — README rewritten for clarity and troubleshooting guidance.
+```
+
+```
+
 
 If you like what we are building here and want to support the project, the easiest way is to hit the ⭐ Star button on GitHub.
-
-Your support helps us improve this multi-agent AI system and keep building useful tools for research and report generation.
-
-Thank you! 🙏
-
-[⭐ Star this project on GitHub]( https://github.com/Etheal9/Multi-Agent-AI-Report-System-with-LangGraph?tab=readme-ov-file AI Report System with LangGraph) – Thank you for your support!
-
