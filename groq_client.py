@@ -1,9 +1,13 @@
 # groq_client.py
 from groq import Groq
 import os
+import logging
 from dotenv import load_dotenv
 from typing import Optional, Any
 import inspect
+from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -62,16 +66,37 @@ def _extract_text_from_response(resp: Any) -> str:
     except Exception as e:
         return f"[error extracting text: {e}]"
 
+def _call_gemini_fallback(prompt: str) -> str:
+    """Fallback logic utilizing the Google Gemini SDK when Groq fails."""
+    try:
+        from google import genai
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            return "[error: Groq failed and GEMINI_API_KEY is missing for fallback]"
+            
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
+        return response.text
+    except Exception as e:
+        return f"[error: both Groq and Gemini fallback failed: {e}]"
+
 def ask_groq(prompt: str,
-             model: str = "openai/gpt-oss-20b",
+             model: str = "openai/gpt-oss-120b",
              temperature: float = 0.7,
              max_tokens: Optional[int] = None) -> str:
     """
     Safe, adaptive Groq wrapper. Accepts `max_tokens` for compatibility and
     maps it to the appropriate SDK parameter if supported.
     Returns generated text string or an error marker starting with '[error:'.
+    
+    If Groq fails (e.g., HTTP 429 or 500 timeout), it will automatically
+    failover to Gemini flash.
     """
-    try:
+    @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))
+    def _execute():
         client = _get_client()
         func = client.chat.completions.create
         token_param_name = _choose_token_param(func)
@@ -93,15 +118,10 @@ def ask_groq(prompt: str,
         resp = func(**payload)
         return _extract_text_from_response(resp)
 
-    except TypeError as te:
-        # Defensive fallback: try again without any token parameter
-        try:
-            payload.pop(token_param_name, None) if 'token_param_name' in locals() and token_param_name else None
-            resp = func(model=model,
-                        messages=payload["messages"],
-                        temperature=payload.get("temperature", 0.7))
-            return _extract_text_from_response(resp)
-        except Exception as e:
-            return f"[error: {e}]"
-    except Exception as e:
-        return f"[error: {e}]"
+    try:
+        return _execute()
+    except Exception as groq_error:
+        # If Groq fails for any reason (Rate Limit, Server Timeout, Bad Request)
+        # Attempt to failover to Gemini
+        logger.warning(f"⚠️ Groq failed after retries: {groq_error}. Attempting Gemini failover...")
+        return _call_gemini_fallback(prompt)

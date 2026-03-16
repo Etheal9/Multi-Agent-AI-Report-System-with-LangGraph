@@ -1,2 +1,36 @@
+# Environments
 .env
 .venv
+env/
+venv/
+ENV/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Testing
+.pytest_cache/
+.coverage
+coverage.xml
+
+# Output & Logs
+*.txt
+!requirements.txt
+
+# Databases
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Project Specific
+tasks/
+.gemini/
+

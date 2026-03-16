@@ -6,3 +6,7 @@ google-generativeai
 tavily
 # Optional / recommended
 python-dotenv
+
+# Resilience & Testing
+tenacity
+pytest-cov
