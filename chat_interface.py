@@ -158,29 +158,36 @@ with gr.Blocks() as demo:
 
     def export_to_pdf(chat_history):
         """Converts the last AI message from the chat history into a downloadable PDF."""
-        if not chat_history:
-            return gr.update(visible=False)
-            
-        # Find the last message from the 'Agents'
-        last_agent_msg = ""
-        for msg in reversed(chat_history):
-            role = msg.get("role", "")
-            text = msg.get("content", "")
-            if role == "assistant" and not text.startswith("*(⏳"):
-                last_agent_msg = text
-                break
+        try:
+            if not chat_history:
+                gr.Warning("No chat history to export!")
+                return gr.update(visible=False)
                 
-        if not last_agent_msg:
-            return gr.update(visible=False)
+            # Find the last message from the 'Agents'
+            last_agent_msg = ""
+            for msg in reversed(chat_history):
+                role = msg.get("role", "")
+                text = msg.get("content", "")
+                if role == "assistant" and not text.startswith("*(⏳"):
+                    last_agent_msg = text
+                    break
+                    
+            if not last_agent_msg:
+                gr.Warning("No valid report found to export!")
+                return gr.update(visible=False)
+                
+            # Convert Markdown to PDF
+            pdf = MarkdownPdf()
+            pdf.add_section(Section(last_agent_msg))
             
-        # Convert Markdown to PDF
-        pdf = MarkdownPdf()
-        pdf.add_section(Section(last_agent_msg))
-        
-        output_path = "exported_report.pdf"
-        pdf.save(output_path)
-        
-        return gr.update(value=output_path, visible=True)
+            output_path = "exported_report.pdf"
+            pdf.save(output_path)
+            
+            gr.Info("PDF generated successfully!")
+            return gr.update(value=output_path, visible=True)
+        except Exception as e:
+            gr.Warning(f"Export failed: {str(e)}")
+            return gr.update(visible=False)
 
     # --- Events ---
     demo.load(load_history, inputs=[], outputs=[history_list])

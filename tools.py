@@ -65,11 +65,17 @@ def robust_search_skill(topic: str, context: Optional[str] = None) -> str:
     except Exception as e:
         return f"[error: robust_search_skill failed parsing queries] {e}"
 
+    # Limit to maximum 2 search queries to prevent context window explosion
+    queries = queries[:2]
+
     results = []
     for q in queries:
         try:
-            search = tavily.search(query=q, max_results=2)
-            results.extend([f"{r.get('content', '')} (Source: {r.get('url', '')})" for r in search.get("results", [])])
+            # Only pull 1 top result per query and truncate characters to save tokens
+            search = tavily.search(query=q, max_results=1)
+            for r in search.get("results", []):
+                content = r.get('content', '')[:1000] # Hard truncate to 1000 chars
+                results.append(f"{content}... (Source: {r.get('url', '')})")
         except Exception as e:
             results.append(f"[search_error: {q}] {e}")
             

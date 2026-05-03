@@ -84,7 +84,7 @@ def _call_gemini_fallback(prompt: str) -> str:
         return f"[error: both Groq and Gemini fallback failed: {e}]"
 
 def ask_groq(prompt: str,
-             model: str = "openai/gpt-oss-120b",
+             model: str = "meta-llama/llama-4-scout-17b-16e-instruct",
              temperature: float = 0.7,
              max_tokens: Optional[int] = None) -> str:
     """

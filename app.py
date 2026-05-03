@@ -39,8 +39,10 @@ class AgentState(TypedDict):
 # OpenAI compatible API proxy (like OpenRouter) due to the 'openai/' prefix, 
 # you may also need to set base_url depending on the user's environment setup.
 llm = ChatGroq(
-    model="openai/gpt-oss-120b", 
+    model="meta-llama/llama-4-scout-17b-16e-instruct", 
     temperature=0.7, 
+    max_retries=1,
+    max_tokens=2000,
     api_key=GROQ_API_KEY
 )
 
@@ -126,7 +128,7 @@ if __name__ == "__main__":
         with get_postgres_saver() as checkpointer:
             graph = build_workflow(checkpointer=checkpointer)
             
-            thread = {"configurable": {"thread_id": "test_thread_01"}}
+            thread = {"configurable": {"thread_id": "test_thread_03"}}
             initial_input = {"messages": [("user", "Write a short report on the market outlook for electric vehicles in 2025.")]}
             
             for event in graph.stream(initial_input, thread, stream_mode="values"):
